@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-base font-body text-ink antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display font-bold uppercase;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  /* Uppercase tracked kicker, the esports label voice */
+  .kicker {
+    @apply font-nav text-xs font-bold uppercase tracking-[0.18em] text-lime;
+  }
+  /* Stat label / value pair used on profiles & dashboards */
+  .stat-label {
+    @apply font-nav text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-ink-faint;
+  }
+  .stat-value {
+    @apply font-display text-xl font-bold uppercase leading-none;
+  }
+  /* Pill neon button */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-nav text-xs font-bold uppercase tracking-[0.12em] transition;
+  }
+  .btn-primary {
+    @apply bg-violet text-white hover:bg-violet-bright hover:shadow-neon-violet;
+  }
+  .btn-lime {
+    @apply bg-lime text-base hover:shadow-neon-lime;
+  }
+  .btn-ghost {
+    @apply border border-hair text-ink hover:border-violet hover:text-white;
+  }
+  /* Panel surface */
+  .panel {
+    @apply border border-hair bg-surface;
+  }
+  /* Angular neon slash accent (decorative) */
+  .slash {
+    @apply inline-block h-3 w-8 -skew-x-[20deg] bg-lime;
+  }
+  /* Status stamps re-cast as neon badges */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 font-nav text-[0.65rem] font-bold uppercase tracking-wider;
+  }
+  .badge-ok {
+    @apply border-lime/50 bg-lime/10 text-lime;
+  }
+  .badge-wait {
+    @apply border-gold/50 bg-gold/10 text-gold;
+  }
+  .badge-no {
+    @apply border-danger/50 bg-danger/10 text-danger;
+  }
+}
+
+/* Field inputs on dark */
+input,
+textarea,
+select {
+  color-scheme: dark;
+}
+
+/* Markdown rendering (descriptions, formules) */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  color: #fff;
+  margin: 1em 0 0.4em;
+}
+.markdown-body h1 {
+  font-size: 1.35rem;
+}
+.markdown-body h2 {
+  font-size: 1.15rem;
+}
+.markdown-body h3 {
+  font-size: 1rem;
+}
+.markdown-body p {
+  margin: 0.5em 0;
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+.markdown-body ul {
+  list-style: square;
+}
+.markdown-body ol {
+  list-style: decimal;
+}
+.markdown-body a {
+  color: #a3ff12;
+  text-decoration: underline;
+}
+.markdown-body strong {
+  color: #e6e3f0;
+}
+.markdown-body blockquote {
+  border-left: 3px solid #7c4dff;
+  padding-left: 0.8em;
+  color: #9a93b4;
+  margin: 0.6em 0;
+}
+.markdown-body code {
+  background: #241f33;
+  border: 1px solid #2e2842;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+}
+.markdown-body hr {
+  border-color: #2e2842;
+  margin: 1em 0;
+}
+
+/* Leaflet map (LocationPicker) — keep the Nécromant surface behind tiles */
+.leaflet-container {
+  background: #12101a;
+  font-family: inherit;
+}
+.map-pin {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #7c4dff;
+  border: 2px solid #e6e3f0;
+  box-shadow:
+    0 0 0 2px rgba(124, 77, 255, 0.4),
+    0 0 18px 2px rgba(124, 77, 255, 0.7);
+}

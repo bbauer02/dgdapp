@@ -1,0 +1,227 @@
+@startuml ClassDiagram_PlateformeEvenementielle
+
+skinparam classAttributeIconSize 0
+hide circle
+
+' ===================== ENUMS =====================
+enum ProviderOAuth {
+  GOOGLE
+  DISCORD
+}
+
+enum ModuleApplicatif {
+  EVENEMENTS
+  FINANCES
+  MEMBRES
+  CARTOGRAPHIE
+  HAUTS_FAITS
+}
+
+enum NiveauDroit {
+  LECTURE
+  ECRITURE
+}
+
+enum StatutInscription {
+  EN_ATTENTE
+  VALIDEE
+  REFUSEE
+}
+
+enum TypeCostume {
+  CIVIL
+  MILITAIRE
+}
+
+enum StatutDossier {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+enum StatutTache {
+  A_FAIRE
+  EN_COURS
+  TERMINE
+}
+
+enum TypeElementCarte {
+  TENTE
+  STAND
+  ZONE
+}
+
+enum StatutReclamation {
+  EN_ATTENTE
+  VALIDEE
+  REFUSEE
+}
+
+enum ModeObtention {
+  MANUEL
+  RECLAMATION
+  AUTOMATIQUE
+}
+
+' ===================== COMPTE =====================
+class Utilisateur {
+  +id: UUID
+  +email: string
+  +pseudo: string
+  +avatarUrl: string
+  +provider: ProviderOAuth
+  +providerId: string
+  +dateInscription: date
+  +profilComplet: boolean
+  --
+  +completerProfil()
+  +modifierProfil()
+  +seDesinscrire()
+}
+
+' ===================== ASSOCIATION =====================
+class Association {
+  +id: UUID
+  +nom: string
+  +description: string
+  +dateCreation: date
+}
+
+class MembreAssociation {
+  +id: UUID
+  +dateAdhesion: date
+}
+
+class Role {
+  +id: UUID
+  +nom: string
+  +estParDefaut: boolean
+}
+
+class Droit {
+  +id: UUID
+  +module: ModuleApplicatif
+  +niveau: NiveauDroit
+}
+
+' ===================== EVENEMENT =====================
+class Evenement {
+  +id: UUID
+  +titre: string
+  +description: string
+  +dateDebut: datetime
+  +dateFin: datetime
+  +lieu: string
+}
+
+class Inscription {
+  +id: UUID
+  +statut: StatutInscription
+  +dateInscription: date
+}
+
+class DossierCostume {
+  +id: UUID
+  +type: TypeCostume
+  +fichierUrl: string
+  +statut: StatutDossier
+  +motifRefus: string
+  +reponseUtilisateur: string
+  +dateSoumission: date
+}
+
+class Tache {
+  +id: UUID
+  +titre: string
+  +description: string
+  +statut: StatutTache
+  +priorite: int
+}
+
+' ===================== CARTOGRAPHIE =====================
+class Cartographie {
+  +id: UUID
+  +nom: string
+  +fondPlanUrl: string
+}
+
+class ElementCarte {
+  +id: UUID
+  +type: TypeElementCarte
+  +libelle: string
+  +positionX: float
+  +positionY: float
+}
+
+' ===================== HAUTS FAITS =====================
+class HautFait {
+  +id: UUID
+  +nom: string
+  +description: string
+  +iconeUrl: string
+}
+
+class ReclamationHautFait {
+  +id: UUID
+  +statut: StatutReclamation
+  +motifRefus: string
+  +reponseUtilisateur: string
+  +dateReclamation: date
+}
+
+class HautFaitObtenu {
+  +id: UUID
+  +dateObtention: date
+  +modeObtention: ModeObtention
+}
+
+' ===================== RELATIONS - COMPTE / ASSOCIATION =====================
+Utilisateur "1" -- "0..*" MembreAssociation
+Association "1" -- "0..*" MembreAssociation
+Association "1" -- "0..*" Role
+MembreAssociation "0..*" -- "0..*" Role
+Role "1" -- "0..*" Droit
+
+' Le créateur de l'association devient admin (rôle "Président" ou équivalent)
+Utilisateur "1" ..> Association : crée >
+
+' ===================== RELATIONS - EVENEMENT =====================
+Association "1" -- "0..*" Evenement
+Evenement "1" -- "0..*" Inscription
+Utilisateur "1" -- "0..*" Inscription
+Inscription "1" -- "0..1" DossierCostume
+
+Evenement "1" -- "0..*" Tache
+Utilisateur "0..1" -- "0..*" Tache : assignée à >
+
+Evenement "1" -- "0..1" Cartographie
+Cartographie "1" -- "0..*" ElementCarte
+
+' ===================== RELATIONS - HAUTS FAITS =====================
+Association "1" -- "0..*" HautFait
+HautFait "1" -- "0..*" ReclamationHautFait
+Utilisateur "1" -- "0..*" ReclamationHautFait
+
+HautFait "1" -- "0..*" HautFaitObtenu
+Utilisateur "1" -- "0..*" HautFaitObtenu
+
+' ===================== NOTES =====================
+note right of MembreAssociation
+  Rôles par défaut créés à
+  l'initialisation de l'association :
+  Membre, Trésorier, Président,
+  Membre du CA, Secrétaire
+end note
+
+note right of DossierCostume
+  motifRefus renseigné par l'Admin
+  reponseUtilisateur renseignée par
+  l'utilisateur suite à un refus
+end note
+
+note right of ReclamationHautFait
+  Même logique de motif/réponse
+  que pour DossierCostume
+end note
+
+@enduml

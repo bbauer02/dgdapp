@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dgdapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dgdapp
+      POSTGRES_PASSWORD: dgdapp
+      POSTGRES_DB: dgdapp
+    ports:
+      - "5433:5432"
+    volumes:
+      - dgdapp_pgdata:/var/lib/postgresql/data
+
+volumes:
+  dgdapp_pgdata:

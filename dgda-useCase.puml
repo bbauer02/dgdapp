@@ -1,0 +1,144 @@
+@startuml UseCases_PlateformeEvenementielle
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+' ===================== ACTEURS =====================
+actor "Visiteur" as Visiteur
+actor "Utilisateur\n(authentifié)" as Utilisateur
+actor "Membre d'association" as Membre
+actor "Admin d'association" as Admin
+actor "Fournisseur OAuth\n(Google / Discord)" as OAuth <<system>>
+actor "Système" as Systeme <<system>>
+
+Membre --|> Utilisateur
+Admin --|> Membre
+
+' ===================== COMPTE / AUTHENTIFICATION =====================
+package "Gestion de compte" {
+  usecase "S'inscrire" as UC_Inscrire
+  usecase "Se connecter" as UC_Connecter
+  usecase "S'authentifier via OAuth" as UC_OAuth
+  usecase "Compléter son profil" as UC_CompleterProfil
+  usecase "Modifier son profil" as UC_ModifierProfil
+  usecase "Se désinscrire\n(supprimer son compte)" as UC_Desinscrire
+}
+
+Visiteur --> UC_Inscrire
+Visiteur --> UC_Connecter
+UC_Inscrire ..> UC_OAuth : <<include>>
+UC_Connecter ..> UC_OAuth : <<include>>
+UC_OAuth --> OAuth
+
+Utilisateur --> UC_CompleterProfil
+Utilisateur --> UC_ModifierProfil
+Utilisateur --> UC_Desinscrire
+
+' ===================== EVENEMENTS (cote utilisateur) =====================
+package "Consultation des événements" {
+  usecase "Consulter la liste\ndes événements" as UC_ListeEvt
+  usecase "Voir le détail\nd'un événement" as UC_DetailEvt
+  usecase "S'inscrire à un événement" as UC_InscrireEvt
+  usecase "Soumettre un dossier\ncostume (civil / militaire)" as UC_DossierCostume
+  usecase "Répondre à un refus\nde dossier" as UC_RepondreRefusDossier
+}
+
+Utilisateur --> UC_ListeEvt
+Utilisateur --> UC_DetailEvt
+Utilisateur --> UC_InscrireEvt
+Utilisateur --> UC_RepondreRefusDossier
+UC_InscrireEvt ..> UC_DetailEvt : <<extend>>
+UC_InscrireEvt ..> UC_DossierCostume : <<extend>>
+
+' ===================== ASSOCIATIONS =====================
+package "Gestion des associations" {
+  usecase "Créer une association" as UC_CreerAsso
+  usecase "Modifier une association" as UC_ModifierAsso
+  usecase "Supprimer une association" as UC_SupprimerAsso
+  usecase "Rejoindre une association" as UC_RejoindreAsso
+  usecase "Quitter une association" as UC_QuitterAsso
+}
+
+Utilisateur --> UC_CreerAsso
+Utilisateur --> UC_RejoindreAsso
+Membre --> UC_QuitterAsso
+UC_CreerAsso ..> Admin : <<devient>>
+
+Admin --> UC_ModifierAsso
+Admin --> UC_SupprimerAsso
+
+' ===================== GESTION DES MEMBRES / ROLES / DROITS =====================
+package "Gestion des rôles & droits (Admin asso)" {
+  usecase "Assigner un rôle\nà un membre" as UC_AssignerRole
+  usecase "Créer un rôle personnalisé" as UC_CreerRole
+  usecase "Modifier un rôle par défaut" as UC_ModifierRole
+  usecase "Définir les droits d'accès\npar module (Lecture / Écriture)" as UC_DroitsAcces
+}
+
+Admin --> UC_AssignerRole
+Admin --> UC_CreerRole
+Admin --> UC_ModifierRole
+Admin --> UC_DroitsAcces
+UC_CreerRole ..> UC_DroitsAcces : <<include>>
+UC_ModifierRole ..> UC_DroitsAcces : <<include>>
+
+note bottom of UC_AssignerRole
+  Rôles par défaut :
+  Membre, Trésorier, Président,
+  Membre du CA, Secrétaire
+end note
+
+' ===================== GESTION DES EVENEMENTS (Admin) =====================
+package "Gestion des événements (Admin asso)" {
+  usecase "Créer un événement" as UC_CreerEvt
+  usecase "Modifier / Supprimer\nun événement" as UC_ModifierEvt
+  usecase "Valider les inscriptions" as UC_ValiderInscription
+  usecase "Valider les dossiers\ncostume civil / militaire" as UC_ValiderDossier
+  usecase "Ajouter un motif\nde refus de dossier" as UC_MotifRefusDossier
+  usecase "Gérer les tâches\n(tableau Kanban)" as UC_Kanban
+  usecase "Créer la cartographie\nde l'événement" as UC_Cartographie
+  usecase "Positionner les éléments\nsur la carte (tentes, etc.)" as UC_PositionnerElements
+}
+
+Admin --> UC_CreerEvt
+Admin --> UC_ModifierEvt
+Admin --> UC_ValiderInscription
+Admin --> UC_ValiderDossier
+Admin --> UC_Kanban
+Admin --> UC_Cartographie
+
+UC_ValiderInscription ..> UC_InscrireEvt : <<extend>>
+UC_ValiderDossier ..> UC_DossierCostume : <<extend>>
+UC_ValiderDossier ..> UC_MotifRefusDossier : <<extend>>
+UC_RepondreRefusDossier ..> UC_MotifRefusDossier : <<extend>>
+UC_Cartographie ..> UC_PositionnerElements : <<include>>
+
+' ===================== HAUTS FAITS =====================
+package "Gestion des hauts faits" {
+  usecase "Créer un haut fait" as UC_CreerHautFait
+  usecase "Assigner un haut fait\nà un utilisateur" as UC_AssignerHautFait
+  usecase "Consulter la liste des hauts\nfaits d'une association" as UC_ListeHautFait
+  usecase "Réclamer un haut fait" as UC_ReclamerHautFait
+  usecase "Valider / refuser une\nréclamation de haut fait" as UC_ValiderReclamation
+  usecase "Ajouter un motif de refus\nde réclamation" as UC_MotifRefusReclamation
+  usecase "Répondre à un refus\nde réclamation" as UC_RepondreRefusReclamation
+  usecase "Attribuer automatiquement\n\"Participation à l'événement\"" as UC_HautFaitAuto
+}
+
+Admin --> UC_CreerHautFait
+Admin --> UC_AssignerHautFait
+Admin --> UC_ValiderReclamation
+
+Utilisateur --> UC_ListeHautFait
+Utilisateur --> UC_ReclamerHautFait
+Utilisateur --> UC_RepondreRefusReclamation
+UC_ReclamerHautFait ..> UC_ListeHautFait : <<extend>>
+UC_ValiderReclamation ..> UC_ReclamerHautFait : <<extend>>
+UC_ValiderReclamation ..> UC_MotifRefusReclamation : <<extend>>
+UC_RepondreRefusReclamation ..> UC_MotifRefusReclamation : <<extend>>
+
+Systeme --> UC_HautFaitAuto
+UC_HautFaitAuto ..> UC_ValiderInscription : <<extend>>
+
+@enduml

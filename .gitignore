@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+
+# Env
+.env
+.env.local
+.env*.local
+
+# Prisma
+/prisma/*.db
+
+# Uploads (dev local storage)
+/public/uploads/
+
+# IDE
+.idea/
+
+# Test / tooling artifacts
+.playwright-mcp/
+*.log
+next-env.d.ts

@@ -1,0 +1,878 @@
+// Historical reenactment event management — data model
+// DB: PostgreSQL (native arrays, Decimal money, real unique constraints)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+// OAuth provider of an account (RF-01/RF-02). Null provider = legacy
+// credentials account (dev fallback).
+enum OAuthProvider {
+  GOOGLE
+  DISCORD
+}
+
+// Membership lifecycle (RF-10: free join by default, admin-approval mode
+// available per association via Association.requiresApproval).
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+}
+
+// Application modules carrying per-role access rights (RF-08).
+enum AppModule {
+  EVENTS
+  FINANCES
+  MEMBERS
+  CARTOGRAPHY
+  ACHIEVEMENTS
+}
+
+enum PermissionLevel {
+  READ
+  WRITE
+}
+
+// RF-12: events are public by default, restrictable to association members.
+enum EventVisibility {
+  PUBLIC
+  MEMBERS
+}
+
+enum CostumeType {
+  CIVIL
+  MILITARY
+}
+
+// Costume dossier review workflow (RF-14..16). A user reply to a refusal
+// moves the dossier back to PENDING.
+enum DossierStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Kanban columns (RF-18).
+enum KanbanStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+// Achievement claim workflow (RF-24/25).
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// How an achievement was obtained (RG-04).
+enum AwardMode {
+  MANUAL
+  CLAIM
+  AUTOMATIC
+}
+
+// Status of a player's registration to an event (admin review workflow)
+enum RegistrationStatus {
+  PENDING // submitted, awaiting admin review
+  APPROVED // costume/gear validated by admin
+  REJECTED // sent back to the player
+  CANCELLED
+}
+
+// Status of the costume-photo validation done by an admin
+enum CostumeReviewStatus {
+  NOT_REVIEWED
+  APPROVED
+  NEEDS_CHANGES
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING // checkout session opened
+  PAID
+  REFUNDED
+}
+
+enum TentType {
+  BELL // tente cloche
+  WEDGE // tente canadienne / cul-de-four
+  MARQUEE // grande tente / marquise
+  A_FRAME
+  OTHER
+}
+
+enum TentShape {
+  ROUND
+  RECTANGULAR
+}
+
+// Social role a participant holds FOR A GIVEN EVENT (carried by Registration).
+enum EventRole {
+  CHEVALIER
+  SERGENT_MONTE
+  SERGENT
+  SOLDAT
+  INTENDANT
+}
+
+// Category of a participation feat, for the gamified profile "CV".
+enum FeatCategory {
+  EVENT // participated in a past event
+  TRAINING // stage / AMHE / formation
+  DISTINCTION // award, title, notable deed
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Association
+//   Strict de-duplication: we never trust raw input for uniqueness.
+//   `nameNormalized` (trim + lowercase + collapsed spaces) carries the UNIQUE
+//   constraint, so "Asso X" and "  asso   x " resolve to the same row.
+//   The normalized value is computed in the app layer on every write.
+// ---------------------------------------------------------------------------
+
+model Association {
+  id               String   @id @default(cuid())
+  name             String // display name, as typed by the user
+  nameNormalized   String   @unique // enforcement key — set by the app
+  description      String?  @db.Text
+  // RF-10: when true, a join request stays PENDING until an admin approves it.
+  requiresApproval Boolean  @default(false)
+  // Identity media (uploaded files, served from /uploads).
+  logoUrl          String?
+  bannerUrl        String? // header banner on the public association page
+  socialLinks      Json? // [{ label, url }] shown on the public association page
+  createdById      String?
+  createdBy        User?    @relation("AssociationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Denormalized "primary association" shown on player profiles.
+  // Authoritative membership lives in `memberships`.
+  members User[]
+
+  memberships  AssociationMember[]
+  roles        AssoRole[]
+  events       Event[]
+  achievements Achievement[]
+
+  @@index([nameNormalized])
+}
+
+// ---------------------------------------------------------------------------
+// AssociationMember — authoritative membership join (a user can belong to
+//   several associations, RF-09/RF-10). Carries the member's roles.
+// ---------------------------------------------------------------------------
+
+model AssociationMember {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  associationId String
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  status   MembershipStatus @default(ACTIVE)
+  joinedAt DateTime         @default(now())
+
+  roles AssoRole[]
+
+  @@unique([userId, associationId])
+  @@index([associationId])
+}
+
+// ---------------------------------------------------------------------------
+// AssoRole — a named role inside ONE association (RF-06/07). Default set
+//   created with the association: Membre, Trésorier, Président, Membre du CA,
+//   Secrétaire. The name grants nothing by itself — rights do (RF-08).
+//   A member's effective rights = UNION of all their roles' rights (RF-09).
+// ---------------------------------------------------------------------------
+
+model AssoRole {
+  id            String      @id @default(cuid())
+  associationId String
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  name      String
+  isDefault Boolean @default(false) // part of the initial set
+
+  permissions RolePermission[]
+  members     AssociationMember[]
+
+  @@unique([associationId, name])
+  @@index([associationId])
+}
+
+model RolePermission {
+  id     String   @id @default(cuid())
+  roleId String
+  role   AssoRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  module AppModule
+  level  PermissionLevel
+
+  // One right per module per role; WRITE supersedes READ.
+  @@unique([roleId, module])
+}
+
+// ---------------------------------------------------------------------------
+// User / Player profile (also holds auth fields)
+// ---------------------------------------------------------------------------
+
+model User {
+  id String @id @default(cuid())
+
+  // RF-02: an account is identified by (provider, providerId) — NOT by email.
+  // Two providers with the same email = two distinct accounts (no auto-merge).
+  // provider = null → legacy credentials account (dev fallback), which is the
+  // only case where `email` is used as a lookup key.
+  email        String
+  provider     OAuthProvider?
+  providerId   String?
+  passwordHash String? // null for OAuth accounts (RF-01: no local password)
+  role         Role           @default(PLAYER)
+
+  // RF-03: profile completion after first OAuth sign-in.
+  profileComplete Boolean @default(false)
+
+  // Profile
+  firstName      String
+  lastName       String
+  birthDate      DateTime?
+  profilePicture String? // stored file URL/key
+
+  // Costume photo galleries (validated by admins at registration review)
+  civilianCostumePics String[] @default([])
+  militaryCostumePics String[] @default([])
+
+  associationId String?
+  association   Association? @relation(fields: [associationId], references: [id], onDelete: SetNull)
+
+  campGear      CampGear[]
+  registrations Registration[]
+  feats         MemberFeat[]
+
+  memberships         AssociationMember[]
+  createdAssociations Association[]       @relation("AssociationCreator")
+  dossierMessages     DossierMessage[]
+  memberOfTasks       EventTask[]         @relation("TaskMembers")
+  taskComments        TaskComment[]       @relation("TaskComments")
+  achievementClaims   AchievementClaim[]
+  claimMessages       ClaimMessage[]
+  achievementAwards   AchievementAward[]  @relation("AwardRecipient")
+  receivedInvitations EventInvitation[]   @relation("ReceivedInvitations")
+  sentInvitations     EventInvitation[]   @relation("SentInvitations")
+  grantedAwards       AchievementAward[]  @relation("AwardGranter")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerId])
+  @@index([email])
+  @@index([associationId])
+}
+
+// ---------------------------------------------------------------------------
+// Event
+// ---------------------------------------------------------------------------
+
+model Event {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?  @db.Text
+  startDate       DateTime
+  endDate         DateTime
+  location        String?
+  // Geocoded position of `location` (OpenStreetMap/Nominatim) — drives the map.
+  latitude        Float?
+  longitude       Float?
+  documentUrl     String? // rules / PDF upload
+  // Event identity media (uploaded files, served from /uploads).
+  logoUrl         String?
+  bannerUrl       String? // header banner on the public event page
+  // Social links of the event: JSON array of { label, url }.
+  socialLinks     Json    @default("[]")
+  maxParticipants Int?
+  basePrice       Decimal  @default(0) @db.Decimal(10, 2)
+
+  // RF-11: an event is organised by an association. Nullable only for
+  // legacy rows; new events always set it.
+  associationId String?
+  association   Association? @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  // RF-12: public by default, restrictable to the association's members.
+  visibility EventVisibility @default(PUBLIC)
+
+  // RF-14: does registration require a costume dossier?
+  requiresCostume Boolean @default(false)
+
+  packages       RegistrationPackage[]
+  registrations  Registration[]
+  campLayout     CampLayout?
+  rolePrices     EventRolePrice[]
+  teams          Team[]
+  tasks          EventTask[]
+  taskLabels     TaskLabel[]           @relation("EventLabels")
+  characterRoles EventCharacterRole[]
+  invitations    EventInvitation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startDate])
+  @@index([associationId])
+}
+
+// ---------------------------------------------------------------------------
+// RegistrationPackage (Formules)
+// ---------------------------------------------------------------------------
+
+model RegistrationPackage {
+  id            String   @id @default(cuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String
+  price         Decimal  @db.Decimal(10, 2)
+  description   String?  @db.Text // markdown
+  includedItems String[] @default([]) // e.g. ["Repas samedi", "Bivouac", "Assurance"]
+
+  registrations  Registration[]
+  characterRoles EventCharacterRole[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// EventCharacterRole — configurable social status a player can embody at an
+// event ("soldat", "chevalier", …), optionally tied to a price package.
+// Replaces the fixed EventRole enum (kept for legacy rows).
+// ---------------------------------------------------------------------------
+
+model EventCharacterRole {
+  id          String  @id @default(cuid())
+  eventId     String
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name        String
+  description String? @db.Text
+
+  // The price formula this role maps to (nullable — role without a set fee).
+  packageId String?
+  package   RegistrationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  registrations Registration[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// EventInvitation — invite people from OUTSIDE the association to a private
+// (MEMBERS) event. Matched to a platform account by userId when known, else
+// by email at sign-in time. The invitee stays PENDING until they respond.
+// ---------------------------------------------------------------------------
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model EventInvitation {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  email     String
+  firstName String?
+  lastName  String?
+
+  // Platform account, when the invitee already has one.
+  userId String?
+  user   User?   @relation("ReceivedInvitations", fields: [userId], references: [id], onDelete: SetNull)
+
+  invitedById String?
+  invitedBy   User?   @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  status InvitationStatus @default(PENDING)
+  token  String           @unique @default(cuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, email])
+  @@index([userId])
+  @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Registration — a player signs up to an event via a package
+//   Central join carrying the admin-review + payment workflow.
+// ---------------------------------------------------------------------------
+
+model Registration {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  packageId String?
+  package   RegistrationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  // Social role chosen for THIS event + the fee snapshot at sign-up time.
+  role    EventRole?
+  roleFee Decimal?   @db.Decimal(10, 2)
+
+  // Configurable character role (statut social incarné) — new system.
+  characterRoleId String?
+  characterRole   EventCharacterRole? @relation(fields: [characterRoleId], references: [id], onDelete: SetNull)
+
+  status        RegistrationStatus  @default(PENDING)
+  costumeReview CostumeReviewStatus @default(NOT_REVIEWED)
+  reviewNote    String?             @db.Text // admin feedback to the player
+
+  // Payment
+  paymentStatus   PaymentStatus @default(UNPAID)
+  stripeSessionId String?
+  amountPaid      Decimal?      @db.Decimal(10, 2)
+
+  // Gear the player declared they are bringing to THIS event
+  campGear   CampGear[]
+  teamMember TeamMember?
+  dossier    CostumeDossier?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A player registers to a given event only once
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// CostumeDossier — the costume validation file attached to a registration
+//   (RF-14..16). Refusals REQUIRE a reason (RG-03), exchanged through a
+//   timestamped message thread; each user reply re-opens the dossier
+//   (status back to PENDING) until an admin settles it.
+// ---------------------------------------------------------------------------
+
+model CostumeDossier {
+  id             String       @id @default(cuid())
+  registrationId String       @unique
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  type     CostumeType
+  fileUrls String[]      @default([]) // supporting pictures/documents
+  status   DossierStatus @default(PENDING)
+
+  messages DossierMessage[]
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DossierMessage {
+  id        String         @id @default(cuid())
+  dossierId String
+  dossier   CostumeDossier @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // true → written by a reviewer (refusal reason / follow-up);
+  // false → written by the participant (reply, RF-16).
+  fromAdmin Boolean
+  body      String  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([dossierId])
+}
+
+// ---------------------------------------------------------------------------
+// EventTask — Kanban board per event (RF-18/19).
+// ---------------------------------------------------------------------------
+
+model EventTask {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?      @db.Text
+  status      KanbanStatus @default(TODO)
+  priority    Int          @default(0)
+  position    Int          @default(0) // ordering inside a column
+
+  // Trello-style card fields ------------------------------------------------
+  startAt     DateTime? // date de début
+  dueAt       DateTime? // échéance
+  dueComplete Boolean   @default(false) // échéance marquée réalisée
+  coverColor  String? // bandeau de couverture (hex)
+  archived    Boolean   @default(false) // archivée ≠ supprimée
+
+  // Multiple members per card (Trello). Replaces the old single assigneeId.
+  members User[] @relation("TaskMembers")
+
+  labels      TaskLabel[]
+  checklists  TaskChecklist[]
+  attachments TaskAttachment[]
+  comments    TaskComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId, status])
+}
+
+// Board-scoped coloured labels (one label set per event, like Trello boards).
+model TaskLabel {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation("EventLabels", fields: [eventId], references: [id], onDelete: Cascade)
+
+  name  String // may be empty — colour-only label, like Trello
+  color String // hex
+
+  tasks EventTask[]
+
+  @@index([eventId])
+}
+
+model TaskChecklist {
+  id     String    @id @default(cuid())
+  taskId String
+  task   EventTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  title    String
+  position Int    @default(0)
+
+  items TaskCheckItem[]
+
+  @@index([taskId])
+}
+
+model TaskCheckItem {
+  id          String        @id @default(cuid())
+  checklistId String
+  checklist   TaskChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  text     String
+  done     Boolean @default(false)
+  position Int     @default(0)
+
+  @@index([checklistId])
+}
+
+// Attachments are URLs (same no-blob convention as the rest of the app).
+model TaskAttachment {
+  id     String    @id @default(cuid())
+  taskId String
+  task   EventTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  url  String
+  name String?
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+model TaskComment {
+  id     String    @id @default(cuid())
+  taskId String
+  task   EventTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("TaskComments", fields: [authorId], references: [id], onDelete: Cascade)
+
+  body String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// EventRolePrice — per-event fee for each social role (configurable).
+// ---------------------------------------------------------------------------
+
+model EventRolePrice {
+  id      String    @id @default(cuid())
+  eventId String
+  event   Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  role    EventRole
+  price   Decimal   @db.Decimal(10, 2)
+
+  @@unique([eventId, role])
+  @@index([eventId])
+}
+
+// ---------------------------------------------------------------------------
+// Team — an admin-built formation within an event.
+//   Exactly one member is the leader ("Seigneur"). Feeds a future org chart.
+// ---------------------------------------------------------------------------
+
+model Team {
+  id      String  @id @default(cuid())
+  eventId String
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name    String
+  color   String? // hex, for the banner/frame
+
+  members TeamMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // A registration belongs to at most one team (per its event).
+  registrationId String       @unique
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  isLeader Boolean @default(false) // the "Seigneur" at the head
+
+  createdAt DateTime @default(now())
+
+  @@index([teamId])
+}
+
+// ---------------------------------------------------------------------------
+// MemberFeat — a participation-history / achievement entry on a player's
+//   GENERAL profile. Points sum to the player's "value" (gamification CV).
+// ---------------------------------------------------------------------------
+
+model MemberFeat {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String // "Event 2014 — Soldat", "Stage AMHE longue épée"
+  detail   String?      @db.Text
+  category FeatCategory @default(EVENT)
+  year     Int?
+  points   Int          @default(0) // contributes to the player's value
+
+  createdById String? // admin/orga who granted it
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Achievement ("Haut fait") — an association-scoped badge (RF-21..26).
+//   Distinct from MemberFeat (free-form CV entry): achievements are formal
+//   badges with a claim/validation circuit and automatic grants.
+// ---------------------------------------------------------------------------
+
+model Achievement {
+  id            String      @id @default(cuid())
+  associationId String
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String? @db.Text
+  iconUrl     String?
+  // Valeur en points de renom gagnés à chaque attribution du badge.
+  points      Int     @default(0)
+
+  // RF-26: non-repeatable by default; "Participation à l'événement" is
+  // created repeatable + automatic.
+  repeatable Boolean @default(false)
+  // System badge granted automatically when a registration is approved
+  // (RF-17/RG-04) — outside the claim circuit.
+  isAuto     Boolean @default(false)
+
+  claims AchievementClaim[]
+  awards AchievementAward[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([associationId, name])
+}
+
+// A user's request to be granted an achievement (RF-24/25). Refusals carry a
+// mandatory reason in the message thread; a user reply re-opens the claim.
+model AchievementClaim {
+  id            String      @id @default(cuid())
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status ClaimStatus @default(PENDING)
+
+  messages ClaimMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([achievementId, status])
+  @@index([userId])
+}
+
+model ClaimMessage {
+  id      String           @id @default(cuid())
+  claimId String
+  claim   AchievementClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  fromAdmin Boolean
+  body      String  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([claimId])
+}
+
+// The badge actually granted (RF-22 manual / claim validation / RF-17 auto).
+model AchievementAward {
+  id            String      @id @default(cuid())
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation("AwardRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  mode AwardMode
+
+  // For AUTOMATIC participation awards: which event triggered it.
+  eventId String?
+
+  grantedById String?
+  grantedBy   User?   @relation("AwardGranter", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  awardedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([achievementId])
+}
+
+// ---------------------------------------------------------------------------
+// CampGear — a piece of camping equipment owned by a player.
+//   Belongs to the player's inventory; optionally attached to a specific
+//   event Registration. Drives the to-scale tokens in the Camp Planner.
+// ---------------------------------------------------------------------------
+
+model CampGear {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  registrationId String?
+  registration   Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  label    String // e.g. "Tente cloche de Michel"
+  tentType TentType  @default(OTHER)
+  shape    TentShape @default(ROUND)
+
+  // ROUND -> use diameterM; RECTANGULAR -> use widthM x lengthM.
+  diameterM Decimal? @db.Decimal(6, 2) // meters
+  widthM    Decimal? @db.Decimal(6, 2)
+  lengthM   Decimal? @db.Decimal(6, 2)
+
+  // Total ground footprint (m^2). Can be derived, but stored for display/planning.
+  footprintAreaM2 Decimal? @db.Decimal(8, 2)
+
+  // Extra buffer radius (meters) around the tent for guy-ropes ("zone de cordage").
+  ropeZoneRadiusM Decimal @default(0) @db.Decimal(5, 2)
+
+  // Optional planner styling (custom colour / pie segments for the generic tool)
+  color String? // hex, e.g. "#8b5e3c"
+
+  placements CampToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([registrationId])
+}
+
+// ---------------------------------------------------------------------------
+// Camp Layout Planner (Admin only) — one canvas per event
+// ---------------------------------------------------------------------------
+
+model CampLayout {
+  id      String @id @default(cuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Ground area in meters + rendering scale (pixels per meter)
+  widthM         Decimal @default(20) @db.Decimal(6, 2)
+  heightM        Decimal @default(30) @db.Decimal(6, 2)
+  pixelsPerMeter Int     @default(20)
+
+  tokens CampToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// CampToken — a placed shape on the layout.
+//   Either backed by a real CampGear item (auto-scaled) OR a free-form
+//   geometric token the admin created (custom size/colour/segments).
+// ---------------------------------------------------------------------------
+
+model CampToken {
+  id       String     @id @default(cuid())
+  layoutId String
+  layout   CampLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+
+  // Backing gear (null => generic/custom token)
+  campGearId String?
+  campGear   CampGear? @relation(fields: [campGearId], references: [id], onDelete: SetNull)
+
+  label String?
+  shape TentShape @default(ROUND)
+
+  // Position on the canvas, in METERS from top-left (scale-independent).
+  xM       Decimal @default(0) @db.Decimal(7, 2)
+  yM       Decimal @default(0) @db.Decimal(7, 2)
+  rotation Int     @default(0) // degrees
+
+  // Dimensions for generic tokens (mirrors CampGear fields when custom).
+  diameterM       Decimal? @db.Decimal(6, 2)
+  widthM          Decimal? @db.Decimal(6, 2)
+  lengthM         Decimal? @db.Decimal(6, 2)
+  ropeZoneRadiusM Decimal  @default(0) @db.Decimal(5, 2)
+
+  showRopeZone Boolean @default(false) // per-token toggle
+  color        String? // fill colour
+  segments     Json? // optional pie-chart segments (equal parts): [{ color }, ...]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([layoutId])
+}
