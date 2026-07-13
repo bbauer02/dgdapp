@@ -21,3 +21,4 @@ build/
 .playwright-mcp/
 *.log
 next-env.d.ts
+*.tsbuildinfo
