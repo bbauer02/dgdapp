@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader, { type HeaderUser } from "@/components/site/SiteHeader";
 import { initials } from "@/lib/faction";
 import { canViewEvent } from "@/lib/event-visibility";
+import { eventPriceLabel } from "@/lib/event-pricing";
 import { checkModule } from "@/lib/permissions";
 import {
   registerToEventAction,
@@ -44,7 +45,7 @@ export default async function EventDetail({
 }) {
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   const { id } = await params;
@@ -118,7 +119,7 @@ export default async function EventDetail({
       }`,
       accent: true,
     },
-    { label: "Prix de base", value: `${Number(event.basePrice).toFixed(2)} €` },
+    { label: "Tarif", value: eventPriceLabel(event.packages.map((p) => Number(p.price))) },
     { label: "Formules", value: `${event.packages.length}` },
     { label: "Durée", value: `${daysBetween(event.startDate, event.endDate)} j` },
   ];

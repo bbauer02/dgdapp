@@ -161,7 +161,6 @@ async function main() {
       endDate: new Date("2027-05-17T18:00:00Z"),
       location: "Château de Crèvecœur, Normandie",
       maxParticipants: 120,
-      basePrice: "25.00",
       associationId: association.id,
       visibility: "PUBLIC",
       requiresCostume: true,
@@ -187,7 +186,6 @@ async function main() {
       location: "Salle des fêtes, Lisieux",
       associationId: association.id,
       visibility: "MEMBERS",
-      basePrice: "15.00",
     },
   });
 
@@ -199,8 +197,8 @@ async function main() {
     await prisma.campGear.create({
       data: {
         userId: player.id,
-        label: "Tente cloche de Michel",
-        tentType: "BELL",
+        label: "Poivrière de Michel",
+        tentType: "POIVRIERE",
         shape: "ROUND",
         diameterM: "4",
         footprintAreaM2: "12.57",

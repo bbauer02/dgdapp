@@ -22,7 +22,7 @@ type Matrix = Partial<Record<AppModule, PermissionLevel | null>>;
 const LEVELS: Array<{ value: PermissionLevel | null; label: string }> = [
   { value: null, label: "—" },
   { value: "READ", label: "Lecture" },
-  { value: "WRITE", label: "Écriture" },
+  { value: "WRITE", label: "Lecture/Écriture" },
 ];
 
 function toMatrix(role: RoleData | null, modules: ModuleOption[]): Matrix {
@@ -120,7 +120,7 @@ export default function RolesManager({
                           .map(
                             (p) =>
                               `${modules.find((m) => m.value === p.module)?.label ?? p.module} : ${
-                                p.level === "WRITE" ? "écriture" : "lecture"
+                                p.level === "WRITE" ? "lecture/écriture" : "lecture"
                               }`
                           )
                           .join(" · ")}

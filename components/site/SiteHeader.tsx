@@ -10,6 +10,33 @@ export interface HeaderUser {
   id: string;
   name: string;
   role: "ADMIN" | "PLAYER";
+  image?: string | null;
+}
+
+/** Petit avatar carré : photo de profil, ou initiales sur fond violet. */
+function HeaderAvatar({ user }: { user: HeaderUser }) {
+  const monogram = user.name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+  if (user.image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={user.image}
+        alt=""
+        className="h-7 w-7 shrink-0 border border-hair object-cover"
+      />
+    );
+  }
+  return (
+    <span className="grid h-7 w-7 shrink-0 place-items-center border border-hair bg-violet/30 font-display text-[0.7rem] font-bold text-white">
+      {monogram}
+    </span>
+  );
 }
 
 interface HeaderAsso {
@@ -116,8 +143,9 @@ function UserMenu({ user }: { user: HeaderUser }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 px-2 py-2 font-nav text-xs font-semibold uppercase tracking-wider text-lime transition hover:text-white"
+        className="flex items-center gap-2 px-2 py-1.5 font-nav text-xs font-semibold uppercase tracking-wider text-lime transition hover:text-white"
       >
+        <HeaderAvatar user={user} />
         {user.name}
         <span className="text-lime">+</span>
       </button>
@@ -186,7 +214,7 @@ export default function SiteHeader({ user }: { user: HeaderUser | null }) {
         <Link href="/" className="flex items-center gap-2">
           <span className="slash" aria-hidden />
           <span className="font-display text-lg font-bold uppercase tracking-tight text-white">
-            DGD
+            DGDAPP
           </span>
         </Link>
 
@@ -281,7 +309,10 @@ export default function SiteHeader({ user }: { user: HeaderUser | null }) {
 
           {user ? (
             <>
-              <p className="stat-label border-t border-hair px-4 pb-1 pt-3">{user.name}</p>
+              <p className="flex items-center gap-2 border-t border-hair px-4 pb-1 pt-3">
+                <HeaderAvatar user={user} />
+                <span className="stat-label">{user.name}</span>
+              </p>
               <Link href={`/players/${user.id}`} className={itemCls}>
                 Mon profil
               </Link>

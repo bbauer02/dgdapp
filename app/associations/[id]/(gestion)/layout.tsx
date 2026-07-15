@@ -61,6 +61,7 @@ export default async function AssoGestionLayout({
   const headerUser: HeaderUser = {
     id: session.user.id,
     name: session.user.name ?? "Profil",
+    image: session.user.image ?? null,
     role: session.user.role,
   };
   const color = factionColor(association.nameNormalized);

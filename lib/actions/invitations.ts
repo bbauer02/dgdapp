@@ -113,7 +113,7 @@ export async function inviteToEventAction(
     to: resolved.email,
     subject: `Invitation — ${event.title}`,
     text:
-      `Vous êtes invité·e à l'événement « ${event.title} » sur DGD.\n\n` +
+      `Vous êtes invité·e à l'événement « ${event.title} » sur DGDAPP.\n\n` +
       `Consultez l'invitation et répondez ici : ${link}\n\n` +
       (resolved.userId
         ? "Connectez-vous avec votre compte pour accepter ou refuser."

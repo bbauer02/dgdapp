@@ -12,6 +12,7 @@ export default async function NewAssociationPage() {
   const headerUser: HeaderUser = {
     id: session.user.id,
     name: session.user.name ?? "Profil",
+    image: session.user.image ?? null,
     role: session.user.role,
   };
 

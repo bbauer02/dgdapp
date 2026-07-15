@@ -2,30 +2,35 @@
 
 import { useRef, useState } from "react";
 import { uploadFile } from "@/lib/upload-client";
+import ImageCropModal from "@/components/ui/ImageCropModal";
 
 /**
  * Image upload as a form field: uploads to /api/upload on selection, shows a
  * preview, and submits the stored URL through a hidden input `name`.
  * `aspect` tunes the preview box (logo = square, bannière = wide).
+ * `crop` opens a crop editor before uploading: "circle" previews the result as
+ * a disc (logos), "square" keeps sharp corners (avatars). Omit for no crop.
  */
 export default function ImageUploadField({
   name,
   label,
   defaultValue,
   aspect = "square",
+  crop,
 }: {
   name: string;
   label: string;
   defaultValue?: string | null;
   aspect?: "square" | "banner";
+  crop?: "circle" | "square";
 }) {
   const [url, setUrl] = useState(defaultValue ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function onPick(file: File | undefined) {
-    if (!file) return;
+  async function doUpload(file: File) {
     setBusy(true);
     setError(null);
     try {
@@ -35,12 +40,34 @@ export default function ImageUploadField({
       setError(e instanceof Error ? e.message : "Échec de l'upload");
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
-  const previewClass =
-    aspect === "banner" ? "h-24 w-full object-cover" : "h-24 w-24 object-cover";
+  function onPick(file: File | undefined) {
+    if (fileRef.current) fileRef.current.value = "";
+    if (!file) return;
+    // Crop enabled: edit the local file first, then upload the result.
+    if (crop && file.type.startsWith("image/")) {
+      setCropSrc(URL.createObjectURL(file));
+      return;
+    }
+    void doUpload(file);
+  }
+
+  function onCropConfirm(blob: Blob) {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    void doUpload(new File([blob], "crop.jpg", { type: "image/jpeg" }));
+  }
+
+  function onCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  }
+
+  const sizeClass = aspect === "banner" ? "h-24 w-full" : "h-24 w-24";
+  const round = crop === "circle" ? "rounded-full" : "";
+  const previewClass = `${sizeClass} object-cover ${round}`;
 
   return (
     <div className="flex flex-col gap-1">
@@ -52,9 +79,7 @@ export default function ImageUploadField({
           <img src={url} alt={label} className={`${previewClass} border border-hair bg-base`} />
         ) : (
           <div
-            className={`${
-              aspect === "banner" ? "h-24 w-full" : "h-24 w-24"
-            } grid place-items-center border border-dashed border-hair font-nav text-[0.65rem] uppercase tracking-wider text-ink-faint`}
+            className={`${sizeClass} grid place-items-center border border-dashed border-hair font-nav text-[0.65rem] uppercase tracking-wider text-ink-faint ${round}`}
           >
             Aucune image
           </div>
@@ -85,8 +110,16 @@ export default function ImageUploadField({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => void onPick(e.target.files?.[0])}
+        onChange={(e) => onPick(e.target.files?.[0])}
       />
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          shape={crop}
+          onConfirm={onCropConfirm}
+          onCancel={onCropCancel}
+        />
+      )}
     </div>
   );
 }

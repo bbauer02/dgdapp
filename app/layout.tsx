@@ -14,7 +14,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "DGD — Reconstitutions & Tournois",
+  title: "DGDAPP — Reconstitutions & Tournois",
   description:
     "Événements, tournois de reconstitution, profils de participants et plan de camp.",
 };

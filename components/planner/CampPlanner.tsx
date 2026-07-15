@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import CampCanvas from "./CampCanvas";
+import ColorField from "@/components/ui/ColorField";
 import { MOCK_GEAR } from "@/lib/planner/mockGear";
 import { saveCampLayout } from "@/lib/actions/planner";
 import {
@@ -419,12 +420,7 @@ export default function CampPlanner({
 
             <label className="flex items-center gap-2">
               <span>Couleur</span>
-              <input
-                type="color"
-                value={gColor}
-                onChange={(e) => setGColor(e.target.value)}
-                className="h-7 w-12 rounded-none border border-hair bg-base"
-              />
+              <ColorField value={gColor} onChange={setGColor} swatchClassName="h-7 w-10" />
             </label>
 
             {gShape === "ROUND" && (
@@ -573,11 +569,10 @@ export default function CampPlanner({
 
             <label className="flex items-center gap-2">
               <span>Couleur</span>
-              <input
-                type="color"
+              <ColorField
                 value={selected.color}
-                onChange={(e) => patch(selected.id, { color: e.target.value })}
-                className="h-7 w-12 rounded-none border border-hair bg-base"
+                onChange={(hex) => patch(selected.id, { color: hex })}
+                swatchClassName="h-7 w-10"
               />
             </label>
 
@@ -608,14 +603,10 @@ export default function CampPlanner({
                   <div className="flex flex-col gap-2">
                     {selected.segments.map((seg, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <input
-                          type="color"
+                        <ColorField
                           value={seg.color}
-                          onChange={(e) =>
-                            patchSegment(selected, i, { color: e.target.value })
-                          }
-                          className="h-7 w-9 shrink-0 rounded-none border border-hair bg-base"
-                          title="Couleur du segment"
+                          onChange={(hex) => patchSegment(selected, i, { color: hex })}
+                          swatchClassName="h-7 w-8"
                         />
                         <span className="flex-1 text-ink-faint">
                           Segment {i + 1} · {(360 / selected.segments!.length).toFixed(0)}°

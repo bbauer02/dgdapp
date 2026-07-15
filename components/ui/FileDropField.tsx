@@ -16,6 +16,7 @@ export function FilePiece({ url, index }: { url: string; index: number }) {
         href={url}
         target="_blank"
         rel="noreferrer"
+        draggable={false}
         className="flex h-20 w-20 flex-col items-center justify-center gap-1 border border-hair bg-base font-nav text-[0.6rem] uppercase tracking-wider text-ink-soft transition hover:border-lime hover:text-lime"
         title={url}
       >
@@ -25,11 +26,12 @@ export function FilePiece({ url, index }: { url: string; index: number }) {
     );
   }
   return (
-    <a href={url} target="_blank" rel="noreferrer">
+    <a href={url} target="_blank" rel="noreferrer" draggable={false}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}
         alt={`Pièce ${index + 1} du dossier`}
+        draggable={false}
         className="h-20 w-20 border border-hair object-cover transition hover:border-lime"
       />
     </a>
@@ -57,6 +59,9 @@ export default function FileDropField({
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reorder-by-drag state: index being dragged + index hovered as drop target.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useStrayDropGuard();
@@ -84,6 +89,19 @@ export default function FileDropField({
     setManualUrl("");
   }
 
+  // Move the dragged thumbnail to the drop-target position.
+  function reorder(to: number) {
+    setUrls((cur) => {
+      if (dragIndex === null || dragIndex === to) return cur;
+      const next = [...cur];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setDragIndex(null);
+    setOverIndex(null);
+  }
+
   return (
     <div data-image-drop className="flex flex-col gap-1">
       <span className="stat-label">{label}</span>
@@ -104,6 +122,7 @@ export default function FileDropField({
           }
         }}
         onDragOver={(e) => {
+          if (dragIndex !== null) return; // a thumbnail reorder, not a file drop
           e.preventDefault();
           setDragging(true);
         }}
@@ -142,8 +161,42 @@ export default function FileDropField({
       {urls.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-2">
           {urls.map((url, i) => (
-            <div key={`${url}-${i}`} className="group relative">
+            <div
+              key={`${url}-${i}`}
+              onDragOver={(e) => {
+                if (dragIndex === null) return; // ignore file drags, only reorder
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (overIndex !== i) setOverIndex(i);
+              }}
+              onDrop={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                reorder(i);
+              }}
+              className={`group relative transition ${
+                dragIndex === i ? "opacity-40" : ""
+              } ${overIndex === i && dragIndex !== i ? "ring-2 ring-lime" : ""}`}
+            >
               <FilePiece url={url} index={i} />
+              {/* Drag handle — reorder without hijacking the click-to-open. */}
+              <span
+                draggable
+                onDragStart={(e) => {
+                  setDragIndex(i);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(i));
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                aria-label="Glisser pour réordonner"
+                title="Glisser pour réordonner"
+                className="absolute -left-1.5 -top-1.5 hidden h-5 w-5 cursor-grab items-center justify-center rounded-full border border-hair bg-base text-[0.6rem] text-ink-soft active:cursor-grabbing group-hover:flex"
+              >
+                ⠿
+              </span>
               <button
                 type="button"
                 onClick={() => setUrls((cur) => cur.filter((_, j) => j !== i))}

@@ -110,11 +110,9 @@ enum PaymentStatus {
 }
 
 enum TentType {
-  BELL // tente cloche
-  WEDGE // tente canadienne / cul-de-four
-  MARQUEE // grande tente / marquise
-  A_FRAME
-  OTHER
+  POIVRIERE // tente conique ronde
+  SOLDAT // petite tente de soldat
+  PAVILLON // grand pavillon
 }
 
 enum TentShape {
@@ -308,7 +306,6 @@ model Event {
   // Social links of the event: JSON array of { label, url }.
   socialLinks     Json    @default("[]")
   maxParticipants Int?
-  basePrice       Decimal  @default(0) @db.Decimal(10, 2)
 
   // RF-11: an event is organised by an association. Nullable only for
   // legacy rows; new events always set it.
@@ -792,7 +789,7 @@ model CampGear {
   registration   Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
 
   label    String // e.g. "Tente cloche de Michel"
-  tentType TentType  @default(OTHER)
+  tentType TentType  @default(SOLDAT)
   shape    TentShape @default(ROUND)
 
   // ROUND -> use diameterM; RECTANGULAR -> use widthM x lengthM.
@@ -808,6 +805,10 @@ model CampGear {
 
   // Optional planner styling (custom colour / pie segments for the generic tool)
   color String? // hex, e.g. "#8b5e3c"
+
+  // Top-view livery: equal pie segments (hex colours) for round tents. Empty =
+  // plain `color` disc. Mirrors CampToken.segments used by the camp planner.
+  segments String[] @default([])
 
   placements CampToken[]
 

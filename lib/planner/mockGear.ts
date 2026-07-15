@@ -5,9 +5,9 @@ import type { GearDef } from "./types";
 export const MOCK_GEAR: GearDef[] = [
   {
     id: "gear-michel",
-    label: "Tente cloche 4m",
+    label: "Poivrière 4m",
     owner: "Michel D.",
-    tentType: "BELL",
+    tentType: "POIVRIERE",
     shape: "ROUND",
     diameterM: 4,
     ropeZoneRadiusM: 1.2,
@@ -15,9 +15,9 @@ export const MOCK_GEAR: GearDef[] = [
   },
   {
     id: "gear-sophie",
-    label: "Tente cloche 5m",
+    label: "Poivrière 5m",
     owner: "Sophie L.",
-    tentType: "BELL",
+    tentType: "POIVRIERE",
     shape: "ROUND",
     diameterM: 5,
     ropeZoneRadiusM: 1.5,
@@ -25,9 +25,9 @@ export const MOCK_GEAR: GearDef[] = [
   },
   {
     id: "gear-jean",
-    label: "Canadienne 2×3m",
+    label: "Tente de soldat 2×3m",
     owner: "Jean P.",
-    tentType: "WEDGE",
+    tentType: "SOLDAT",
     shape: "RECTANGULAR",
     widthM: 2,
     lengthM: 3,
@@ -36,9 +36,9 @@ export const MOCK_GEAR: GearDef[] = [
   },
   {
     id: "gear-claire",
-    label: "Marquise 4×6m",
+    label: "Pavillon 4×6m",
     owner: "Claire M.",
-    tentType: "MARQUEE",
+    tentType: "PAVILLON",
     shape: "RECTANGULAR",
     widthM: 4,
     lengthM: 6,

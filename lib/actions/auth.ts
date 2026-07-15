@@ -88,14 +88,13 @@ export async function oauthLoginAction(provider: "google" | "discord") {
   await signIn(provider, { redirectTo: "/dashboard" });
 }
 
-// --- DEV: one-click login to switch account type quickly. Uses the seed
-// accounts (all share "password123"). Remove before production. ---
+// --- DEV: one-click login using the seed admin account
+// (password "password123"). Remove before production. ---
 const DEV_ACCOUNTS = {
   admin: { email: "admin@dgd.test", redirectTo: "/admin" },
-  player: { email: "michel@dgd.test", redirectTo: "/dashboard" },
 } as const;
 
-export async function quickLoginAction(role: "admin" | "player") {
+export async function quickLoginAction(role: keyof typeof DEV_ACCOUNTS) {
   const acc = DEV_ACCOUNTS[role];
   try {
     await signIn("credentials", {

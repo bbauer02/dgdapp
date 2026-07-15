@@ -7,7 +7,7 @@ import { factionColor } from "@/lib/faction";
 export default async function AssociationsPage() {
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   const associations = await prisma.association.findMany({

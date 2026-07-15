@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import SiteHeader, { type HeaderUser } from "@/components/site/SiteHeader";
 import { visibleEventsWhere } from "@/lib/event-visibility";
+import { eventPriceLabel } from "@/lib/event-pricing";
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
 
@@ -13,7 +14,7 @@ function dateRange(start: Date, end: Date): string {
 export default async function EventsPage() {
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   // RF-12: MEMBERS events are only listed for ACTIVE members of the
@@ -23,6 +24,7 @@ export default async function EventsPage() {
     orderBy: { startDate: "asc" },
     include: {
       _count: { select: { registrations: true, packages: true } },
+      packages: { select: { price: true } },
     },
   });
 
@@ -60,8 +62,8 @@ type EventCard = {
   startDate: Date;
   endDate: Date;
   maxParticipants: number | null;
-  basePrice: unknown;
   visibility: "PUBLIC" | "MEMBERS";
+  packages: { price: unknown }[];
   _count: { registrations: number; packages: number };
 };
 
@@ -117,7 +119,7 @@ function EventGroup({
                   {e._count.registrations}
                   {e.maxParticipants != null ? ` / ${e.maxParticipants}` : ""} inscrit(s)
                 </span>
-                <span>· {Number(e.basePrice).toFixed(2)} €</span>
+                <span>· {eventPriceLabel(e.packages.map((p) => Number(p.price)))}</span>
               </div>
             </Link>
           ))}

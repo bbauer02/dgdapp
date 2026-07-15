@@ -8,7 +8,7 @@ import { playerValue, playerValueSelect } from "@/lib/renown";
 export default async function PlayersPage() {
   const session = await auth();
   const user: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   const players = await prisma.user.findMany({

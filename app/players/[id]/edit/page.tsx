@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSelfOrAdmin } from "@/lib/auth-guards";
 import SiteHeader, { type HeaderUser } from "@/components/site/SiteHeader";
 import ProfileEditForm from "@/components/players/ProfileEditForm";
+import CampGearManager from "@/components/players/CampGearManager";
 import { updateProfile } from "@/lib/actions/profile";
 
 function toDateInput(d: Date | null): string {
@@ -22,14 +23,36 @@ export default async function EditProfilePage({
   const headerUser: HeaderUser = {
     id: session.user.id,
     name: session.user.name ?? "Profil",
+    image: session.user.image ?? null,
     role: session.user.role,
   };
 
   const [p, associations] = await Promise.all([
-    prisma.user.findUnique({ where: { id }, include: { association: true } }),
+    prisma.user.findUnique({
+      where: { id },
+      include: {
+        association: true,
+        campGear: { orderBy: { createdAt: "asc" } },
+      },
+    }),
     prisma.association.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!p) notFound();
+
+  // Prisma Decimals aren't serializable to a client component → to numbers.
+  const gear = p.campGear.map((g) => ({
+    id: g.id,
+    label: g.label,
+    tentType: g.tentType,
+    shape: g.shape,
+    diameterM: g.diameterM ? Number(g.diameterM) : null,
+    widthM: g.widthM ? Number(g.widthM) : null,
+    lengthM: g.lengthM ? Number(g.lengthM) : null,
+    footprintAreaM2: g.footprintAreaM2 ? Number(g.footprintAreaM2) : null,
+    ropeZoneRadiusM: Number(g.ropeZoneRadiusM),
+    color: g.color,
+    segments: g.segments,
+  }));
 
   const updateAction = updateProfile.bind(null, p.id);
 
@@ -58,6 +81,10 @@ export default async function EditProfilePage({
               militaryCostumePics: p.militaryCostumePics.join("\n"),
             }}
           />
+        </div>
+
+        <div className="mt-12 border-t border-hair pt-10">
+          <CampGearManager userId={p.id} gear={gear} />
         </div>
       </div>
     </main>

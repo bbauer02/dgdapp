@@ -34,7 +34,6 @@ const eventSchema = z
     // RF-14: does registration require a costume dossier?
     requiresCostume: z.boolean(),
     maxParticipants: z.string().optional(),
-    basePrice: z.string().optional(),
     // Uploaded media URLs (ImageUploadField) — empty string means "none".
     logoUrl: z.string().trim().optional(),
     bannerUrl: z.string().trim().optional(),
@@ -85,13 +84,11 @@ function parseEvent(formData: FormData) {
     socialLinks: formData.get("socialLinks") ?? "[]",
     requiresCostume: formData.get("requiresCostume") === "on",
     maxParticipants: formData.get("maxParticipants") ?? undefined,
-    basePrice: formData.get("basePrice") ?? undefined,
   });
 }
 
 function toData(d: z.infer<typeof eventSchema>) {
   const max = d.maxParticipants?.trim();
-  const price = d.basePrice?.trim();
   return {
     title: d.title,
     description: d.description || null,
@@ -107,7 +104,6 @@ function toData(d: z.infer<typeof eventSchema>) {
     socialLinks: d.socialLinks,
     requiresCostume: d.requiresCostume,
     maxParticipants: max ? parseInt(max, 10) : null,
-    basePrice: price ? price : "0",
   };
 }
 

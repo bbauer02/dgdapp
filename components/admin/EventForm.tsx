@@ -20,7 +20,6 @@ export interface EventDefaults {
   position?: GeoPoint | null;
   requiresCostume?: boolean;
   maxParticipants?: string;
-  basePrice?: string;
   logoUrl?: string | null;
   bannerUrl?: string | null;
   socialLinks?: SocialLink[];
@@ -134,16 +133,13 @@ export default function EventForm({
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="stat-label">Participants max.</span>
-          <input type="number" name="maxParticipants" min={0} defaultValue={defaults?.maxParticipants} className={input} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="stat-label">Prix de base (€)</span>
-          <input type="number" name="basePrice" min={0} step="0.01" defaultValue={defaults?.basePrice} className={input} />
-        </label>
-      </div>
+      <label className="flex flex-col gap-1">
+        <span className="stat-label">Participants max.</span>
+        <input type="number" name="maxParticipants" min={0} defaultValue={defaults?.maxParticipants} className={input} />
+        <span className="font-nav text-xs text-ink-faint">
+          Les tarifs se définissent via les <strong>formules</strong>, après la création de l'événement.
+        </span>
+      </label>
 
       {state?.error && <p className="badge badge-no justify-center py-2">{state.error}</p>}
 

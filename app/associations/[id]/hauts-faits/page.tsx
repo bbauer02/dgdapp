@@ -35,7 +35,7 @@ export default async function AssociationAchievements({
   const { page: rawPage } = await searchParams;
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
   const userId = session?.user.id ?? null;
 

@@ -5,7 +5,7 @@ import SiteHeader, { type HeaderUser } from "@/components/site/SiteHeader";
 export default async function Home() {
   const session = await auth();
   const user: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   return (

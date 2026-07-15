@@ -48,7 +48,7 @@ export default function AssociationSettingsForm({
       </label>
 
       <div className="grid grid-cols-[auto_1fr] gap-4">
-        <ImageUploadField name="logoUrl" label="Logo" defaultValue={defaults.logoUrl} />
+        <ImageUploadField name="logoUrl" label="Logo" defaultValue={defaults.logoUrl} crop="circle" />
         <ImageUploadField
           name="bannerUrl"
           label="Bannière (bandeau d'en-tête)"

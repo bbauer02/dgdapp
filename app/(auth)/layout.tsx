@@ -12,7 +12,7 @@ export default function AuthLayout({
         <span className="absolute -left-1 top-6 h-2 w-10 -skew-x-[20deg] bg-lime" aria-hidden />
         <Link href="/" className="mb-8 block text-center">
           <span className="font-display text-3xl font-bold uppercase tracking-tight text-white">
-            DGD
+            DGDAPP
           </span>
           <span className="kicker mt-1 block">Reconstitutions & Tournois</span>
         </Link>

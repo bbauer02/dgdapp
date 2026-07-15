@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader, { type HeaderUser } from "@/components/site/SiteHeader";
 import { factionColor, initials } from "@/lib/faction";
 import { playerValue } from "@/lib/renown";
+import { tentTypeLabel } from "@/lib/camp-gear";
+import TentTopView from "@/components/planner/TentTopView";
 import { RoleBadge } from "@/components/roles/Role";
 import ProfileCarousel from "@/components/players/ProfileCarousel";
 
@@ -59,7 +61,7 @@ export default async function PlayerProfile({
 }) {
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   const { id } = await params;
@@ -251,18 +253,32 @@ export default async function PlayerProfile({
           ) : (
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {p.campGear.map((g) => (
-                <div key={g.id} className="panel relative overflow-hidden p-4">
+                <div key={g.id} className="panel relative flex gap-4 overflow-hidden p-4">
                   <span className="absolute right-0 top-0 h-full w-1.5 -skew-x-[20deg]" style={{ background: g.color ?? color }} />
-                  <div className="stat-label">{g.tentType} · {g.shape}</div>
-                  <div className="mt-1 font-display text-xl font-bold uppercase text-white">{g.label}</div>
-                  <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-nav text-sm text-ink-soft">
-                    <span>
-                      {g.shape === "ROUND"
-                        ? `Ø ${g.diameterM ?? "—"} m`
-                        : `${g.widthM ?? "—"} × ${g.lengthM ?? "—"} m`}
-                    </span>
-                    {g.footprintAreaM2 && <span>{String(g.footprintAreaM2)} m²</span>}
-                    <span>cordage {String(g.ropeZoneRadiusM)} m</span>
+                  <div className="shrink-0">
+                    <TentTopView
+                      shape={g.shape}
+                      diameterM={g.diameterM ? Number(g.diameterM) : null}
+                      widthM={g.widthM ? Number(g.widthM) : null}
+                      lengthM={g.lengthM ? Number(g.lengthM) : null}
+                      ropeZoneRadiusM={Number(g.ropeZoneRadiusM)}
+                      color={g.color}
+                      segments={g.segments}
+                      size={88}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="stat-label">{tentTypeLabel(g.tentType)} · {g.shape === "ROUND" ? "ronde" : "rectangulaire"}</div>
+                    <div className="mt-1 font-display text-xl font-bold uppercase text-white">{g.label}</div>
+                    <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-nav text-sm text-ink-soft">
+                      <span>
+                        {g.shape === "ROUND"
+                          ? `Ø ${g.diameterM ?? "—"} m`
+                          : `${g.widthM ?? "—"} × ${g.lengthM ?? "—"} m`}
+                      </span>
+                      {g.footprintAreaM2 && <span>{String(g.footprintAreaM2)} m²</span>}
+                      <span>cordage {String(g.ropeZoneRadiusM)} m</span>
+                    </div>
                   </div>
                 </div>
               ))}

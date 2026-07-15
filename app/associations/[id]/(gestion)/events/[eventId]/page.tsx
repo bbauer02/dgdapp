@@ -88,48 +88,11 @@ export default async function EditEventPage({
               : null,
           requiresCostume: event.requiresCostume,
           maxParticipants: event.maxParticipants?.toString() ?? "",
-          basePrice: event.basePrice.toString(),
           logoUrl: event.logoUrl,
           bannerUrl: event.bannerUrl,
           socialLinks: (event.socialLinks as SocialLink[]) ?? [],
         }}
       />
-
-      <section className="mt-12">
-        <h2 className="flex items-center gap-3 font-display text-2xl font-bold uppercase text-white">
-          <span className="slash" aria-hidden />
-          Formules
-        </h2>
-        {event.packages.length === 0 ? (
-          <p className="mt-3 font-nav text-sm text-ink-soft">Aucune formule.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {event.packages.map((p) => (
-              <li key={p.id} className="panel flex items-start justify-between gap-3 p-3">
-                <div>
-                  <div className="font-display font-bold uppercase text-white">
-                    {p.name} — <span className="text-lime">{euro.format(Number(p.price))}</span>
-                  </div>
-                  {p.includedItems.length > 0 && (
-                    <div className="mt-1 font-nav text-xs uppercase tracking-wider text-ink-soft">
-                      {p.includedItems.join(" · ")}
-                    </div>
-                  )}
-                </div>
-                <form action={deletePackage.bind(null, p.id, event.id)}>
-                  <button className="font-nav text-xs uppercase tracking-wider text-ink-faint hover:text-danger">
-                    Supprimer
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mt-4">
-          <PackageForm eventId={event.id} />
-        </div>
-      </section>
 
       {/* Rôles incarnables — statuts sociaux configurables, liés à une formule */}
       <section className="mt-12">
@@ -176,6 +139,42 @@ export default async function EditEventPage({
               price: Number(p.price),
             }))}
           />
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="flex items-center gap-3 font-display text-2xl font-bold uppercase text-white">
+          <span className="slash" aria-hidden />
+          Formules
+        </h2>
+        {event.packages.length === 0 ? (
+          <p className="mt-3 font-nav text-sm text-ink-soft">Aucune formule.</p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-2">
+            {event.packages.map((p) => (
+              <li key={p.id} className="panel flex items-start justify-between gap-3 p-3">
+                <div>
+                  <div className="font-display font-bold uppercase text-white">
+                    {p.name} — <span className="text-lime">{euro.format(Number(p.price))}</span>
+                  </div>
+                  {p.includedItems.length > 0 && (
+                    <div className="mt-1 font-nav text-xs uppercase tracking-wider text-ink-soft">
+                      {p.includedItems.join(" · ")}
+                    </div>
+                  )}
+                </div>
+                <form action={deletePackage.bind(null, p.id, event.id)}>
+                  <button className="font-nav text-xs uppercase tracking-wider text-ink-faint hover:text-danger">
+                    Supprimer
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4">
+          <PackageForm eventId={event.id} />
         </div>
       </section>
 

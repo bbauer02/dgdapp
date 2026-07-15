@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { unstable_update } from "@/auth";
 import { requireSelfOrAdmin } from "@/lib/auth-guards";
 import { normalizeAssociationName } from "@/lib/associations";
 
@@ -45,7 +46,7 @@ export async function updateProfile(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireSelfOrAdmin(id);
+  const session = await requireSelfOrAdmin(id);
   const parsed = parseProfile(formData);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Formulaire invalide" };
@@ -87,6 +88,14 @@ export async function updateProfile(
       profileComplete: true,
     },
   });
+
+  // Refresh the editor's OWN session (JWT) so the header name/avatar updates
+  // immediately. Skip when an admin edits someone else's profile.
+  if (session.user.id === id) {
+    await unstable_update({
+      user: { name: `${d.firstName} ${d.lastName}`.trim() },
+    });
+  }
 
   revalidatePath(`/players/${id}`);
   revalidatePath(`/players/${id}/edit`);

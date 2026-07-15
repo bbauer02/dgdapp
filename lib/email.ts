@@ -31,7 +31,7 @@ export async function sendEmail(opts: {
   }
   try {
     await transport.sendMail({
-      from: process.env.EMAIL_FROM ?? "DGD <noreply@dgd.local>",
+      from: process.env.EMAIL_FROM ?? "DGDAPP <noreply@dgd.local>",
       to: opts.to,
       subject: opts.subject,
       text: opts.text,

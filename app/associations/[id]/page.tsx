@@ -34,7 +34,7 @@ export default async function AssociationDetail({
 }) {
   const session = await auth();
   const headerUser: HeaderUser | null = session
-    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role }
+    ? { id: session.user.id, name: session.user.name ?? "Profil", role: session.user.role, image: session.user.image ?? null }
     : null;
 
   const { id } = await params;
@@ -125,7 +125,7 @@ export default async function AssociationDetail({
               <img
                 src={association.logoUrl}
                 alt={`Logo ${association.name}`}
-                className="h-20 w-20 shrink-0 border border-hair bg-surface object-cover md:h-28 md:w-28"
+                className="h-20 w-20 shrink-0 rounded-full border border-hair bg-surface object-cover md:h-28 md:w-28"
               />
             )}
             <h1

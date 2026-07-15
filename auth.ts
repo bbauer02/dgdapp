@@ -49,6 +49,7 @@ const providers = [
         id: user.id,
         email: user.email,
         name: `${user.firstName} ${user.lastName}`.trim(),
+        image: user.profilePicture,
         role: user.role,
         profileComplete: user.profileComplete,
       };
@@ -56,7 +57,7 @@ const providers = [
   }),
 ];
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt" },
   providers,
@@ -95,7 +96,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     // Node-side JWT: resolve the DB account so the token carries OUR user id
     // (not the provider's). Overrides the edge-safe jwt in auth.config.
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
+      // Profile edits call unstable_update(): reload the DB user so the token
+      // (and thus the header name/avatar) reflects the new firstName/lastName.
+      if (trigger === "update" && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+        });
+        if (dbUser) {
+          token.name = `${dbUser.firstName} ${dbUser.lastName}`.trim();
+          token.picture = dbUser.profilePicture ?? null;
+          token.role = dbUser.role;
+          token.profileComplete = dbUser.profileComplete;
+        }
+        return token;
+      }
       if (account && account.provider !== "credentials") {
         const provider = toDbProvider(account.provider);
         if (provider) {

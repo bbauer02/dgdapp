@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import type { FormState } from "@/lib/actions/profile";
 import FileDropField from "@/components/ui/FileDropField";
+import ImageUploadField from "@/components/ui/ImageUploadField";
 
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -58,10 +59,12 @@ export default function ProfileEditForm({
         <input type="date" name="birthDate" defaultValue={defaults.birthDate} className={input} />
       </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="stat-label">Photo de profil (URL)</span>
-        <input name="profilePicture" type="url" defaultValue={defaults.profilePicture} className={input} />
-      </label>
+      <ImageUploadField
+        name="profilePicture"
+        label="Photo de profil (avatar)"
+        defaultValue={defaults.profilePicture}
+        crop="square"
+      />
 
       <label className="flex flex-col gap-1">
         <span className="stat-label">Association</span>
